@@ -1,0 +1,240 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Aurora Keyframes
+═══════════════════════════════════════════════════════════════════════════ */
+
+@keyframes aurora-1 {
+  0%   { transform: translate(0%, 0%)    scale(1)    rotate(0deg); }
+  33%  { transform: translate(8%, 14%)   scale(1.18) rotate(5deg); }
+  66%  { transform: translate(-6%, 8%)   scale(0.92) rotate(-3deg); }
+  100% { transform: translate(4%, -6%)   scale(1.08) rotate(2deg); }
+}
+
+@keyframes aurora-2 {
+  0%   { transform: translate(0%, 0%)    scale(1)    rotate(0deg); }
+  33%  { transform: translate(-14%, 9%)  scale(1.22) rotate(-6deg); }
+  66%  { transform: translate(7%, -12%)  scale(0.88) rotate(4deg); }
+  100% { transform: translate(-4%, 6%)   scale(1.14) rotate(-2deg); }
+}
+
+@keyframes aurora-3 {
+  0%   { transform: translate(0%, 0%)   scale(1); }
+  50%  { transform: translate(11%, -13%) scale(1.12); }
+  100% { transform: translate(-9%, 6%)  scale(1.18); }
+}
+
+@keyframes aurora-4 {
+  0%   { transform: translate(0%, 0%)   scale(1); }
+  50%  { transform: translate(-11%, 11%) scale(1.22); }
+  100% { transform: translate(6%, -9%)  scale(0.88); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Aurora Blobs
+═══════════════════════════════════════════════════════════════════════════ */
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  mix-blend-mode: screen;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.aurora-blob-1 {
+  top: -20%;
+  left: -12%;
+  width: 68%;
+  height: 68%;
+  background: radial-gradient(ellipse, rgba(124, 58, 237, 0.24) 0%, transparent 70%);
+  animation: aurora-1 22s ease-in-out infinite alternate;
+}
+
+.aurora-blob-2 {
+  top: 22%;
+  right: -18%;
+  width: 62%;
+  height: 62%;
+  background: radial-gradient(ellipse, rgba(34, 211, 238, 0.15) 0%, transparent 70%);
+  animation: aurora-2 27s ease-in-out infinite alternate;
+}
+
+.aurora-blob-3 {
+  bottom: -12%;
+  left: 22%;
+  width: 58%;
+  height: 52%;
+  background: radial-gradient(ellipse, rgba(244, 114, 182, 0.13) 0%, transparent 70%);
+  animation: aurora-3 20s ease-in-out infinite alternate;
+}
+
+.aurora-blob-4 {
+  bottom: 18%;
+  left: -12%;
+  width: 48%;
+  height: 52%;
+  background: radial-gradient(ellipse, rgba(52, 211, 153, 0.1) 0%, transparent 70%);
+  animation: aurora-4 30s ease-in-out infinite alternate;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Liquid Glass Utility Classes
+═══════════════════════════════════════════════════════════════════════════ */
+
+/* Sidebar glass — darker, more opaque so nav is always readable */
+.glass-sidebar {
+  background: rgba(6, 11, 23, 0.72);
+  backdrop-filter: blur(52px) saturate(180%);
+  -webkit-backdrop-filter: blur(52px) saturate(180%);
+  border-right: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow:
+    3px 0 28px rgba(0, 0, 0, 0.55),
+    inset -1px 0 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 80px rgba(124, 58, 237, 0.03);
+}
+
+/* Top navbar glass */
+.glass-nav {
+  background: rgba(6, 11, 23, 0.68);
+  backdrop-filter: blur(52px) saturate(200%);
+  -webkit-backdrop-filter: blur(52px) saturate(200%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow:
+    0 3px 28px rgba(0, 0, 0, 0.45),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 80px rgba(34, 211, 238, 0.025);
+}
+
+/* Generic glass panel */
+.glass {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Scrollbar — aurora accent
+═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  * { box-sizing: border-box; }
+
+  body {
+    background-color: #060b17;
+    color: #f9fafb;
+    font-family: 'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(139, 92, 246, 0.35);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 92, 246, 0.55);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Component Classes — Liquid Glass Restyle
+═══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+
+  /* ── Card ──────────────────────────────────────────────────────────────── */
+  .card {
+    @apply rounded-card p-5 relative;
+    background:
+      linear-gradient(135deg, rgba(139, 92, 246, 0.05) 0%, rgba(34, 211, 238, 0.03) 50%, rgba(244, 114, 182, 0.025) 100%),
+      rgba(255, 255, 255, 0.038);
+    backdrop-filter: blur(36px) saturate(180%);
+    -webkit-backdrop-filter: blur(36px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.075);
+    border-top-color: rgba(255, 255, 255, 0.14);
+    box-shadow:
+      0 4px 28px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 0 0.5px rgba(139, 92, 246, 0.07);
+  }
+
+  /* ── Buttons ───────────────────────────────────────────────────────────── */
+  .btn-primary {
+    @apply inline-flex items-center gap-2 font-medium px-4 py-2 rounded-btn transition-all duration-200 text-white;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.75), rgba(139, 92, 246, 0.75));
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(139, 92, 246, 0.38);
+    border-top-color: rgba(180, 160, 255, 0.32);
+    box-shadow:
+      0 4px 18px rgba(99, 102, 241, 0.32),
+      inset 0 1px 0 rgba(255, 255, 255, 0.16);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.9), rgba(139, 92, 246, 0.9));
+    box-shadow:
+      0 6px 26px rgba(99, 102, 241, 0.48),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center gap-2 font-medium px-4 py-2 rounded-btn transition-all duration-200 text-gray-300;
+    background: rgba(255, 255, 255, 0.04);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.16);
+    color: white;
+  }
+
+  /* ── Input ─────────────────────────────────────────────────────────────── */
+  .input {
+    @apply rounded-input px-3 py-2 text-sm text-white placeholder-muted focus:outline-none transition-all duration-200;
+    background: rgba(255, 255, 255, 0.045);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+  }
+
+  .input:focus {
+    border-color: rgba(139, 92, 246, 0.55);
+    box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* ── Stage Badges (aurora-tinted) ──────────────────────────────────────── */
+  .stage-normal {
+    @apply text-emerald-400;
+    background: rgba(52, 211, 153, 0.09);
+    border: 1px solid rgba(52, 211, 153, 0.22);
+    backdrop-filter: blur(8px);
+  }
+
+  .stage-mci {
+    @apply text-amber-400;
+    background: rgba(251, 191, 36, 0.09);
+    border: 1px solid rgba(251, 191, 36, 0.22);
+    backdrop-filter: blur(8px);
+  }
+
+  .stage-ad {
+    @apply text-red-400;
+    background: rgba(248, 113, 113, 0.09);
+    border: 1px solid rgba(248, 113, 113, 0.22);
+    backdrop-filter: blur(8px);
+  }
+}

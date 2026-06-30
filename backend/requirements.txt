@@ -1,0 +1,55 @@
+# Web Framework
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+python-multipart>=0.0.9
+
+# Data Validation
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Deep Learning
+torch>=2.1.0
+torchvision>=0.16.0
+
+# Medical Imaging
+nibabel>=5.2.0
+nilearn>=0.10.0
+pydicom>=2.4.0
+
+# Computer Vision & Eye Tracking
+opencv-python>=4.9.0
+mediapipe>=0.10.0
+
+# OCR
+paddlepaddle>=2.6.0
+paddleocr>=2.7.0
+
+# ML Utilities
+scikit-learn>=1.4.0
+numpy>=1.26.0
+pandas>=2.2.0
+imbalanced-learn>=0.12.0
+
+# Knowledge Graph
+neo4j>=5.19.0
+
+# Agent Framework
+langchain>=0.1.0
+langchain-community>=0.0.20
+
+# Visualization
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# Image Processing
+Pillow>=10.3.0
+scikit-image>=0.22.0
+
+# PDF Report Generation
+reportlab>=4.1.0
+Pillow>=10.3.0
+
+# Utilities
+python-dotenv>=1.0.0
+aiofiles>=23.2.0
+httpx>=0.27.0

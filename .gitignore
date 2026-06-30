@@ -1,0 +1,69 @@
+# ============================================
+# Project-specific folders
+# ============================================
+
+.claude/
+data/
+docs/
+project Knowledge/
+notebooks/
+node_modules/
+# ============================================
+# Environment files
+# ============================================
+
+.env
+.env.*
+.env.example
+
+# ============================================
+# Project files to ignore
+# ============================================
+
+structure.bat
+New Text Document.txt
+
+# ============================================
+# Python
+# ============================================
+
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# ============================================
+# IDE
+# ============================================
+
+.vscode/
+.idea/
+
+# ============================================
+# OS files
+# ============================================
+
+.DS_Store
+Thumbs.db
+
+# ============================================
+# Logs & Cache
+# ============================================
+
+*.log
+.cache/
+.pytest_cache/
+.mypy_cache/
