@@ -127,11 +127,25 @@
 @layer base {
   * { box-sizing: border-box; }
 
+  html {
+    /* Render native form controls (select popups, date pickers) in dark mode
+       so <option> text isn't white-on-white. */
+    color-scheme: dark;
+  }
+
   body {
     background-color: #060b17;
     color: #f9fafb;
     font-family: 'Inter', system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
+  }
+
+  /* Native dropdown options: force a dark, readable palette regardless of the
+     OS/browser default (fixes options only being visible on hover). */
+  select option,
+  select optgroup {
+    background-color: #0e1424;
+    color: #f9fafb;
   }
 
   ::-webkit-scrollbar { width: 5px; height: 5px; }

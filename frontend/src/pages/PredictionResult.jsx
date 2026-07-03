@@ -465,14 +465,14 @@ export default function PredictionResult() {
                     initial={{ opacity: 0, x: -6 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: i * 0.05 }}
-                    className="flex items-start gap-3 rounded-lg border border-border bg-surface/50 px-3 py-2.5"
+                    className="flex items-start gap-3 rounded-lg border border-border bg-white/[0.03] px-3 py-2.5"
                   >
                     <span className="text-xs bg-blue-900/40 text-blue-300 px-1.5 py-0.5 rounded font-mono shrink-0 mt-0.5">
                       {src.year}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white">{src.name}</p>
-                      <p className="text-xs text-muted mt-0.5 leading-relaxed">{src.description}</p>
+                      <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">{src.description}</p>
                       <span className="inline-block mt-1 text-xs text-primary/70 bg-primary/10 px-1.5 py-0.5 rounded">{src.type}</span>
                     </div>
                   </motion.div>

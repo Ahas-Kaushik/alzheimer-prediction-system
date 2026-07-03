@@ -9,12 +9,23 @@ project Knowledge/
 notebooks/
 node_modules/
 # ============================================
-# Environment files
+# Environment files & secrets — NEVER commit
+# (.env holds GEMINI_API_KEY, Neo4j password, etc.)
 # ============================================
 
 .env
 .env.*
-.env.example
+*.env
+# keep the no-secret template tracked so others can copy it
+!.env.example
+
+# API keys / credentials / certificates
+*.key
+*.pem
+*.p12
+secrets.json
+credentials.json
+service-account*.json
 
 # ============================================
 # Project files to ignore
