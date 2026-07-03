@@ -105,6 +105,71 @@ def project_2d() -> list[dict]:
     ]
 
 
+def vector_overview() -> dict:
+    """Return a formal view of the vector store: the actual stored vectors as a
+    table (norm + value preview), a cosine-similarity matrix, and a 2D PCA
+    projection — for inspecting the embeddings like a real vector database.
+    """
+    try:
+        with neo4j_store._session() as s:
+            rows = [
+                dict(r) for r in s.run(
+                    "MATCH (c:KnowledgeChunk) WHERE c.embedding IS NOT NULL "
+                    "RETURN c.id AS id, c.title AS title, c.category AS category, "
+                    "       c.embedding AS embedding ORDER BY c.category, c.title"
+                )
+            ]
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Vector overview unavailable ({e})")
+        rows = []
+
+    empty = {"points": [], "chunks": [], "similarity": [], "labels": [],
+             "dim": settings.embedding_dim, "count": 0}
+    if len(rows) < 2:
+        return empty
+
+    import numpy as np
+    from sklearn.decomposition import PCA
+
+    X = np.array([r["embedding"] for r in rows], dtype=float)
+    norms = np.linalg.norm(X, axis=1)
+
+    # 2D PCA projection (normalised to a friendly plotting range).
+    coords = PCA(n_components=2, random_state=42).fit_transform(X)
+    coords = coords - coords.mean(axis=0)
+    span = np.abs(coords).max() or 1.0
+    coords = coords / span
+
+    # Cosine-similarity matrix.
+    Xn = X / (norms[:, None] + 1e-9)
+    sim = (Xn @ Xn.T)
+
+    chunks = [
+        {
+            "id": r["id"],
+            "title": r["title"],
+            "category": r["category"],
+            "norm": round(float(norms[i]), 4),
+            "preview": [round(float(v), 4) for v in X[i][:8]],
+        }
+        for i, r in enumerate(rows)
+    ]
+    points = [
+        {"title": r["title"], "category": r["category"],
+         "x": round(float(coords[i][0]), 4), "y": round(float(coords[i][1]), 4)}
+        for i, r in enumerate(rows)
+    ]
+    labels = [r["title"] for r in rows]
+    return {
+        "points": points,
+        "chunks": chunks,
+        "similarity": [[round(float(v), 3) for v in row] for row in sim],
+        "labels": labels,
+        "dim": int(X.shape[1]),
+        "count": len(rows),
+    }
+
+
 def is_seeded() -> bool:
     """True if at least one embedded knowledge chunk exists."""
     try:

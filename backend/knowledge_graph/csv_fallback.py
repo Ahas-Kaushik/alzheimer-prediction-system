@@ -44,7 +44,7 @@ _TABLES = {
     "predictions": [
         "pred_id", "visit_id", "patient_id", "stage", "confidence",
         "contributing_factors", "run_date", "mri_path", "pet_path",
-        "gradcam_path", "cognitive_index", "ssim_score",
+        "gradcam_path", "cognitive_index", "ssim_score", "probabilities",
     ],
     "digital_twins": [
         "twin_id", "visit_id", "patient_id", "generated_at",

@@ -77,14 +77,10 @@ async def vector_projection() -> dict:
     """2D PCA projection of the knowledge-chunk embeddings for a scatter plot."""
     try:
         from backend.rag import vector_store
-        points = vector_store.project_2d()
-        return {
-            "points": points,
-            "index": settings.vector_index_name,
-            "dim": settings.embedding_dim,
-            "embedding_model": settings.embedding_model_name,
-            "count": len(points),
-        }
+        overview = vector_store.vector_overview()
+        overview["index"] = settings.vector_index_name
+        overview["embedding_model"] = settings.embedding_model_name
+        return overview
     except Exception as e:
         logger.error(f"vector projection failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -128,7 +128,7 @@ export default function Settings() {
         <AnimatePresence mode="wait">
           {vectors ? (
             <motion.div key="v" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <VectorDBViz points={vectors.points} />
+              <VectorDBViz data={vectors} />
             </motion.div>
           ) : (
             <div className="text-sm text-muted py-8 text-center">
@@ -137,11 +137,22 @@ export default function Settings() {
             </div>
           )}
         </AnimatePresence>
-        <p className="text-xs text-muted mt-3 pt-3 border-t border-border">
-          The vector store is <strong className="text-white/70">not a separate file</strong> — embeddings live inside
-          Neo4j as <code>(:KnowledgeChunk)</code> nodes indexed by the native vector index, persisted in the Docker
-          volume <code>neo4j_data</code>.
-        </p>
+        <div className="text-xs text-muted mt-3 pt-3 border-t border-border space-y-1">
+          <p>
+            The vector store is <strong className="text-white/70">not a separate file</strong> — embeddings live inside
+            Neo4j as <code>(:KnowledgeChunk)</code> nodes indexed by the native vector index <code>clinical_chunks</code>.
+          </p>
+          <p>
+            On disk they persist in the Docker volume <code>alzheimer-prediction-system_neo4j_data</code> →
+            <code>/data/databases/neo4j/neostore.propertystore.db.arrays</code> (the raw 384-float vectors) and the vector
+            index under <code>/data/databases/neo4j/schema/index/</code>.
+          </p>
+          <p>
+            Explore it in the <strong className="text-white/70">Neo4j Browser</strong> (<code>http://localhost:7474</code>,
+            login <code>neo4j</code> / <code>password</code>):
+            <code className="ml-1">MATCH (c:KnowledgeChunk) RETURN c</code>
+          </p>
+        </div>
       </Card>
     </PageWrapper>
   )

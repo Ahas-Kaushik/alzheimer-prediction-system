@@ -194,6 +194,7 @@ def run_pipeline(
 
     _ssim = agent2_result.get("ssim_score")
     _cog_idx = cognitive_scores.get("cognitive_index")
+    import json as _json
     pred_data = {
         "stage": agent1_result["stage"],
         "confidence": str(agent1_result["confidence"]),
@@ -205,6 +206,9 @@ def run_pipeline(
         "cognitive_index": str(_cog_idx) if _cog_idx is not None else "",
         "ssim_score": str(_ssim) if _ssim is not None else "",
         "gradcam_path": gradcam_path or "",
+        # Full Normal/MCI/AD probability distribution (JSON) so the UI can show
+        # the per-stage bars, not just the top confidence.
+        "probabilities": _json.dumps(agent1_result.get("probabilities", {})),
     }
     pred_row = patient_store.save_prediction(patient_id, visit_id, pred_data)
 

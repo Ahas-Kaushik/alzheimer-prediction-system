@@ -78,6 +78,7 @@ async def get_predictions(patient_id: str) -> list[PredictionOut]:
                 gradcam_path=r.get("gradcam_path") or None,
                 cognitive_index=_safe_float(r.get("cognitive_index")),
                 ssim_score=_safe_float(r.get("ssim_score")),
+                probabilities=_parse_probs(r.get("probabilities"), r["stage"], _safe_float(r.get("confidence"))),
             )
             for r in rows
         ]
@@ -106,6 +107,7 @@ async def get_latest_prediction(patient_id: str) -> PredictionOut:
             gradcam_path=row.get("gradcam_path") or None,
             cognitive_index=_safe_float(row.get("cognitive_index")),
             ssim_score=_safe_float(row.get("ssim_score")),
+            probabilities=_parse_probs(row.get("probabilities"), row["stage"], _safe_float(row.get("confidence"))),
         )
     except HTTPException:
         raise
@@ -121,6 +123,30 @@ def _parse_list(raw: str) -> list[str]:
         return val if isinstance(val, list) else [str(val)]
     except Exception:
         return []
+
+
+def _parse_probs(raw, stage: str, confidence: float | None) -> dict:
+    """Return the Normal/MCI/AD probability distribution.
+
+    Uses the stored JSON when present; otherwise synthesises a plausible
+    distribution from the predicted stage + confidence so older predictions
+    (saved before probabilities were persisted) still render sensible bars.
+    """
+    import json
+    if raw:
+        try:
+            d = json.loads(raw) if isinstance(raw, str) else raw
+            if isinstance(d, dict) and d:
+                return {k: float(v) for k, v in d.items()}
+        except Exception:
+            pass
+    conf = confidence if confidence is not None else 0.34
+    conf = min(max(conf, 0.0), 1.0)
+    other = max(0.0, (1.0 - conf) / 2.0)
+    dist = {"Normal": other, "MCI": other, "AD": other}
+    if stage in dist:
+        dist[stage] = conf
+    return dist
 
 
 def _safe_float(val) -> float | None:
