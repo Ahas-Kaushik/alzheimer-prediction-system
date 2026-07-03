@@ -8,6 +8,7 @@ docs/
 project Knowledge/
 notebooks/
 node_modules/
+synthetic_blood_reports/
 # ============================================
 # Environment files & secrets — NEVER commit
 # (.env holds GEMINI_API_KEY, Neo4j password, etc.)
