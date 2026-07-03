@@ -18,13 +18,25 @@ async def run_prediction(body: PredictionRunIn) -> PredictionOut:
     """Run the full agent pipeline for a patient visit and return the prediction."""
     try:
         clinical = body.clinical_features or {}
-        result = agent4_orchestrator.run_pipeline(
-            patient_id=body.patient_id,
-            scan_id=body.scan_id,
-            clinical_features=clinical,
-            cognitive_session_id=body.cognitive_session_id,
-            skip_cognitive_test=body.skip_cognitive_test,
-        )
+        # Preferred path: LangGraph orchestration (validate → predict → RAG reason).
+        # Falls back to the direct orchestrator if LangGraph is unavailable.
+        try:
+            from backend.agents.graph_pipeline import run_graph_pipeline
+            result = run_graph_pipeline(
+                patient_id=body.patient_id,
+                scan_id=body.scan_id,
+                clinical_features=clinical,
+                cognitive_session_id=body.cognitive_session_id,
+                skip_cognitive_test=body.skip_cognitive_test,
+            )
+        except ImportError:
+            result = agent4_orchestrator.run_pipeline(
+                patient_id=body.patient_id,
+                scan_id=body.scan_id,
+                clinical_features=clinical,
+                cognitive_session_id=body.cognitive_session_id,
+                skip_cognitive_test=body.skip_cognitive_test,
+            )
         return PredictionOut(
             pred_id=result["pred_id"],
             patient_id=result["patient_id"],
@@ -58,14 +70,14 @@ async def get_predictions(patient_id: str) -> list[PredictionOut]:
                 patient_id=r["patient_id"],
                 visit_id=r["visit_id"],
                 stage=r["stage"],
-                confidence=float(r["confidence"]) if r.get("confidence") else 0.0,
+                confidence=_safe_float(r.get("confidence")) or 0.0,
                 contributing_factors=_parse_list(r.get("contributing_factors", "[]")),
                 run_date=datetime.fromisoformat(r["run_date"]) if r.get("run_date") else datetime.now(timezone.utc),
                 mri_path=r.get("mri_path") or None,
                 pet_path=r.get("pet_path") or None,
                 gradcam_path=r.get("gradcam_path") or None,
-                cognitive_index=float(r["cognitive_index"]) if r.get("cognitive_index") else None,
-                ssim_score=float(r["ssim_score"]) if r.get("ssim_score") else None,
+                cognitive_index=_safe_float(r.get("cognitive_index")),
+                ssim_score=_safe_float(r.get("ssim_score")),
             )
             for r in rows
         ]
@@ -86,14 +98,14 @@ async def get_latest_prediction(patient_id: str) -> PredictionOut:
             patient_id=row["patient_id"],
             visit_id=row["visit_id"],
             stage=row["stage"],
-            confidence=float(row["confidence"]) if row.get("confidence") else 0.0,
+            confidence=_safe_float(row.get("confidence")) or 0.0,
             contributing_factors=_parse_list(row.get("contributing_factors", "[]")),
             run_date=datetime.fromisoformat(row["run_date"]) if row.get("run_date") else datetime.now(timezone.utc),
             mri_path=row.get("mri_path") or None,
             pet_path=row.get("pet_path") or None,
             gradcam_path=row.get("gradcam_path") or None,
-            cognitive_index=float(row["cognitive_index"]) if row.get("cognitive_index") else None,
-            ssim_score=float(row["ssim_score"]) if row.get("ssim_score") else None,
+            cognitive_index=_safe_float(row.get("cognitive_index")),
+            ssim_score=_safe_float(row.get("ssim_score")),
         )
     except HTTPException:
         raise
@@ -109,3 +121,16 @@ def _parse_list(raw: str) -> list[str]:
         return val if isinstance(val, list) else [str(val)]
     except Exception:
         return []
+
+
+def _safe_float(val) -> float | None:
+    """Parse a CSV cell to float, tolerating '', 'None', 'null', 'nan'."""
+    if val is None:
+        return None
+    s = str(val).strip()
+    if s.lower() in ("", "none", "null", "nan"):
+        return None
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return None

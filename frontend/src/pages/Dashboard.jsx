@@ -121,7 +121,7 @@ function PatientRowCard({ patient, pred, onSelect }) {
       <div className="text-xs text-right hidden md:block min-w-[90px]">
         {pred ? (
           <>
-            <p className="text-white/50">{relativeTime(pred.created_at)}</p>
+            <p className="text-white/50">{relativeTime(pred.run_date)}</p>
             <p className="text-muted">CI {pred.cognitive_index != null ? Number(pred.cognitive_index).toFixed(0) : '—'}</p>
           </>
         ) : (
@@ -209,7 +209,7 @@ export default function Dashboard() {
     if (pa && !pb) return -1
     if (!pa && pb) return 1
     if (pa && pb) {
-      return new Date(pb.created_at || 0) - new Date(pa.created_at || 0)
+      return new Date(pb.run_date || 0) - new Date(pa.run_date || 0)
     }
     return 0
   })

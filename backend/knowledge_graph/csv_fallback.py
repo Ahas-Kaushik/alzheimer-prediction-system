@@ -44,7 +44,7 @@ _TABLES = {
     "predictions": [
         "pred_id", "visit_id", "patient_id", "stage", "confidence",
         "contributing_factors", "run_date", "mri_path", "pet_path",
-        "cognitive_index", "ssim_score",
+        "gradcam_path", "cognitive_index", "ssim_score",
     ],
     "digital_twins": [
         "twin_id", "visit_id", "patient_id", "generated_at",
@@ -78,7 +78,32 @@ def _read_table(table: str) -> list[dict[str, str]]:
         return list(csv.DictReader(f))
 
 
+def _ensure_header(table: str) -> None:
+    """Upgrade an existing CSV whose header is missing newly-added columns.
+
+    Rewrites the file with the full current column set (old rows get empty
+    values for new columns) so appends never misalign.
+    """
+    p = _csv_path(table)
+    cols = _TABLES[table]
+    if not p.exists():
+        _init_tables()
+        return
+    with p.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        existing = reader.fieldnames or []
+        rows = list(reader)
+    if existing == cols:
+        return
+    with p.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=cols)
+        writer.writeheader()
+        for r in rows:
+            writer.writerow({c: r.get(c, "") for c in cols})
+
+
 def _append_row(table: str, row: dict[str, Any]) -> None:
+    _ensure_header(table)
     p = _csv_path(table)
     cols = _TABLES[table]
     # Ensure all columns present

@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import HoloBrainBackground from './components/background/HoloBrainBackground'
+import ErrorBoundary from './components/layout/ErrorBoundary'
 import Sidebar from './components/layout/Sidebar'
 import Navbar from './components/layout/Navbar'
 import Dashboard from './pages/Dashboard'
@@ -25,6 +26,7 @@ export default function App() {
         <div className="flex flex-col flex-1 overflow-hidden">
           <Navbar />
           <main className="flex-1 overflow-y-auto">
+            <ErrorBoundary>
             <AnimatePresence mode="wait">
               <Routes>
                 <Route path="/"                          element={<Dashboard />} />
@@ -38,6 +40,7 @@ export default function App() {
                 <Route path="/patient/:id/reports"       element={<ReportUpload />} />
               </Routes>
             </AnimatePresence>
+            </ErrorBoundary>
           </main>
         </div>
       </div>

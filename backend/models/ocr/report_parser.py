@@ -69,11 +69,25 @@ def parse_report(raw_text: str) -> dict[str, Any]:
 
     for field, keywords in _BOOL_KEYWORDS.items():
         for kw in keywords:
-            if kw in text:
+            idx = text.find(kw)
+            if idx != -1:
+                # Skip negated mentions ("no diabetes", "non-smoker",
+                # "denies hypertension", "without depression").
+                if _is_negated(text, idx):
+                    continue
                 result[field] = True
                 break
 
     return result
+
+
+_NEGATION_CUES = ("no ", "non", "not ", "denies", "without", "negative for", "absent")
+
+
+def _is_negated(text: str, idx: int) -> bool:
+    """True if the keyword at position `idx` is preceded by a negation cue."""
+    prefix = text[max(0, idx - 18):idx]
+    return any(cue in prefix for cue in _NEGATION_CUES)
 
 
 def _normalize_categorical(field: str, raw: str) -> str:

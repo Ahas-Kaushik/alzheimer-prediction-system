@@ -14,6 +14,7 @@ import StageIndicator from '../components/prediction/StageIndicator'
 import ConfidenceBar from '../components/prediction/ConfidenceBar'
 import AbstractBrainViz from '../components/twin/AbstractBrainViz'
 import TimelineChart from '../components/twin/TimelineChart'
+import AskAIPanel from '../components/rag/AskAIPanel'
 import { usePatient } from '../hooks/usePatient'
 import { usePrediction } from '../hooks/usePrediction'
 import { useDigitalTwin } from '../hooks/useDigitalTwin'
@@ -542,6 +543,11 @@ export default function PatientProfile() {
               </div>
             )}
           </Card>
+
+          {/* ── Ask AI (GraphRAG) ───────────────────────────────────────────── */}
+          <div className="mt-5">
+            <AskAIPanel patientId={id} />
+          </div>
 
           {/* ── Actions footer ──────────────────────────────────────────────── */}
           <Card className="mt-5 flex flex-wrap gap-3">

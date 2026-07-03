@@ -192,14 +192,18 @@ def run_pipeline(
     visits = patient_store.get_visits(patient_id)
     visit_id = visits[-1]["visit_id"] if visits else patient_store.create_visit(patient_id)["visit_id"]
 
+    _ssim = agent2_result.get("ssim_score")
+    _cog_idx = cognitive_scores.get("cognitive_index")
     pred_data = {
         "stage": agent1_result["stage"],
         "confidence": str(agent1_result["confidence"]),
         "contributing_factors": str(agent1_result["contributing_factors"]),
         "mri_path": primary_scan["file_path"],
         "pet_path": agent2_result["file_path"],
-        "cognitive_index": str(cognitive_scores.get("cognitive_index", "")),
-        "ssim_score": str(agent2_result.get("ssim_score", "")),
+        # Store empty string (not the literal "None") for missing numeric values
+        # so the CSV stays parseable as float downstream.
+        "cognitive_index": str(_cog_idx) if _cog_idx is not None else "",
+        "ssim_score": str(_ssim) if _ssim is not None else "",
         "gradcam_path": gradcam_path or "",
     }
     pred_row = patient_store.save_prediction(patient_id, visit_id, pred_data)

@@ -2,11 +2,13 @@ import { motion } from 'framer-motion'
 
 const STAGE_COLORS = { Normal: '#22c55e', MCI: '#f59e0b', AD: '#ef4444' }
 
-export default function ConfidenceBar({ probabilities = {} }) {
+export default function ConfidenceBar({ probabilities }) {
+  // API may send `null` (not just `undefined`), which skips default params.
+  const probs = probabilities || {}
   return (
     <div className="space-y-2.5">
       {['Normal', 'MCI', 'AD'].map((stage) => {
-        const pct = Math.round((probabilities[stage] || 0) * 100)
+        const pct = Math.round((probs[stage] || 0) * 100)
         const color = STAGE_COLORS[stage]
         return (
           <div key={stage}>

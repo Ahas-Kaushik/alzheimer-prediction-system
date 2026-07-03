@@ -1,0 +1,43 @@
+# Neo4j knowledge-graph database for the Alzheimer Prediction System.
+#
+#   Start:   docker compose up -d
+#   Logs:    docker compose logs -f neo4j
+#   Stop:    docker compose down            (data is kept in the named volume)
+#   Reset:   docker compose down -v         (deletes ALL graph data)
+#
+# Browser UI:  http://localhost:7474   (login neo4j / <NEO4J_PASSWORD>)
+# Bolt (app):  bolt://localhost:7687
+#
+# The password is read from your .env (NEO4J_PASSWORD). APOC is enabled and
+# Neo4j 5.x ships native vector indexes, which the RAG layer uses.
+services:
+  neo4j:
+    image: neo4j:5.26-community
+    container_name: alz_neo4j
+    ports:
+      - "7474:7474"   # HTTP browser UI
+      - "7687:7687"   # Bolt protocol (used by the backend)
+    environment:
+      # Credentials — NEO4J_AUTH = user/password. Falls back to 'neo4jpassword'.
+      NEO4J_AUTH: "neo4j/${NEO4J_PASSWORD:-neo4jpassword}"
+      # Allow the APOC plugin procedures.
+      NEO4J_PLUGINS: '["apoc"]'
+      NEO4J_apoc_export_file_enabled: "true"
+      NEO4J_apoc_import_file_enabled: "true"
+      NEO4J_dbms_security_procedures_unrestricted: "apoc.*"
+      # Give the graph a little more memory for embeddings/vector search.
+      NEO4J_server_memory_heap_max__size: "1G"
+      NEO4J_server_memory_pagecache_size: "512M"
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
+  neo4j_logs:

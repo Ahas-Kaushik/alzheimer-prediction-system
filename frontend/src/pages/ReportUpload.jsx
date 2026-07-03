@@ -48,6 +48,21 @@ const FIELD_DEFS = [
 
 const GROUPS = [...new Set(FIELD_DEFS.map(f => f.group))]
 
+// The backend OCR parser emits clinical field names (e.g. `glucose_fasting`)
+// that differ from this form's field keys (e.g. `glucose`). Map parser keys →
+// form keys so every extracted value visibly pre-fills the correct field.
+const OCR_KEY_ALIASES = {
+  glucose_fasting: 'glucose',
+  cholesterol_total: 'cholesterol',
+  vitamin_b12: 'vit_b12',
+  thyroid_tsh: 'tsh',
+  amyloid_beta_42: 'amyloid_level',
+  tau_protein: 'tau_level',
+  p_tau_181: 'ptau_level',
+  smoking_history: 'smoking',
+  depression_history: 'depression',
+}
+
 export default function ReportUpload() {
   const { id: patientId } = useParams()
   const [ocrFile, setOcrFile] = useState(null)
@@ -91,16 +106,18 @@ export default function ReportUpload() {
       form.append('patient_id', patientId)
       form.append('source_type', 'blood_report')
       form.append('file', ocrFile)
-      const { data } = await axiosClient.post('/reports/upload', form)
+      // OCR on CPU can take ~30s; override the default 60s client timeout.
+      const { data } = await axiosClient.post('/reports/upload', form, { timeout: 180000 })
       setRawTextPreview(data.raw_text_preview)
       // Pre-fill only fields that were actually extracted (non-null, non-empty)
       const extracted = data.extracted_fields || {}
       setValues(prev => {
         const merged = { ...prev }
         for (const [k, v] of Object.entries(extracted)) {
-          if (v !== null && v !== '' && v !== undefined) {
-            merged[k] = String(v)
-          }
+          if (v === null || v === '' || v === undefined) continue
+          const formKey = OCR_KEY_ALIASES[k] || k
+          // Booleans come back as true/false → the form's selects expect 'true'/'false'.
+          merged[formKey] = typeof v === 'boolean' ? String(v) : String(v)
         }
         return merged
       })

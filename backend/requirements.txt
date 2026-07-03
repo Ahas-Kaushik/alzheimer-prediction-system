@@ -33,9 +33,16 @@ imbalanced-learn>=0.12.0
 # Knowledge Graph
 neo4j>=5.19.0
 
-# Agent Framework
+# Agent Framework / Orchestration
 langchain>=0.1.0
 langchain-community>=0.0.20
+langgraph>=0.2.0
+
+# RAG — local embeddings + vector storage (Neo4j native vector index)
+sentence-transformers>=2.6.0
+
+# LLM provider (Google Gemini) — optional, templated fallback if no API key
+google-generativeai>=0.7.0
 
 # Visualization
 matplotlib>=3.8.0

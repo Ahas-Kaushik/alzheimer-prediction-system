@@ -15,14 +15,34 @@ class Settings(BaseSettings):
     backend_port: int = 8000
     debug: bool = True
 
-    # Neo4j
+    # Neo4j (primary knowledge-graph backend)
     neo4j_uri: str = "bolt://localhost:7687"
     neo4j_user: str = "neo4j"
     neo4j_password: str = "password"
-    neo4j_database: str = "alzheimer"
+    neo4j_database: str = "neo4j"
 
-    # Dev fallback
-    use_csv_fallback: bool = True
+    # Storage backend routing
+    #   graph_backend = "neo4j"  → use Neo4j knowledge graph (preferred)
+    #   graph_backend = "csv"    → use the CSV dev store directly
+    graph_backend: str = "neo4j"
+    # When True, transparently fall back to the CSV store if Neo4j is unreachable.
+    allow_csv_fallback: bool = True
+    # Legacy flag kept for backward compatibility; when True it forces the CSV backend.
+    use_csv_fallback: bool = False
+
+    # ── RAG / Vector storage ────────────────────────────────────────────────
+    enable_rag: bool = True
+    # Local sentence-transformers embedding model (no API key required).
+    embedding_model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    embedding_dim: int = 384
+    # Name of the Neo4j native vector index over clinical knowledge chunks.
+    vector_index_name: str = "clinical_chunks"
+    rag_top_k: int = 4
+
+    # ── LLM (Google Gemini) ─────────────────────────────────────────────────
+    # Leave empty to use deterministic templated reasoning; set to enable Gemini.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-flash-latest"
 
     # Model checkpoints
     gan_checkpoint_path: str = "data/checkpoints/gan_generator.pth"
