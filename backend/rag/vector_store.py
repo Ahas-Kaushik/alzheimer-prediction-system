@@ -68,6 +68,43 @@ def search(query: str, k: int | None = None) -> List[dict]:
         return []
 
 
+def project_2d() -> list[dict]:
+    """Project the stored knowledge-chunk embeddings to 2D (PCA) for plotting.
+
+    Returns a list of {title, category, x, y}. Empty list if not seeded /
+    Neo4j unavailable.
+    """
+    try:
+        with neo4j_store._session() as s:
+            rows = [
+                dict(r) for r in s.run(
+                    "MATCH (c:KnowledgeChunk) WHERE c.embedding IS NOT NULL "
+                    "RETURN c.title AS title, c.category AS category, c.embedding AS embedding"
+                )
+            ]
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Vector projection unavailable ({e})")
+        return []
+
+    if len(rows) < 2:
+        return []
+
+    import numpy as np
+    from sklearn.decomposition import PCA
+
+    X = np.array([r["embedding"] for r in rows], dtype=float)
+    coords = PCA(n_components=2, random_state=42).fit_transform(X)
+    # Normalise to a friendly plotting range.
+    coords = coords - coords.mean(axis=0)
+    span = np.abs(coords).max() or 1.0
+    coords = coords / span
+    return [
+        {"title": r["title"], "category": r["category"],
+         "x": round(float(coords[i][0]), 4), "y": round(float(coords[i][1]), 4)}
+        for i, r in enumerate(rows)
+    ]
+
+
 def is_seeded() -> bool:
     """True if at least one embedded knowledge chunk exists."""
     try:

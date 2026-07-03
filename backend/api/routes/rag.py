@@ -61,6 +61,35 @@ async def ask(body: AskIn) -> dict:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/graph")
+async def knowledge_graph_snapshot(cap: int = 3) -> dict:
+    """Compact node-link snapshot of the patient knowledge graph for the UI."""
+    try:
+        from backend.knowledge_graph import graph_viz
+        return graph_viz.get_graph_snapshot(cap=cap)
+    except Exception as e:
+        logger.error(f"graph snapshot failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/vectors")
+async def vector_projection() -> dict:
+    """2D PCA projection of the knowledge-chunk embeddings for a scatter plot."""
+    try:
+        from backend.rag import vector_store
+        points = vector_store.project_2d()
+        return {
+            "points": points,
+            "index": settings.vector_index_name,
+            "dim": settings.embedding_dim,
+            "embedding_model": settings.embedding_model_name,
+            "count": len(points),
+        }
+    except Exception as e:
+        logger.error(f"vector projection failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/explain/{patient_id}")
 async def explain(patient_id: str) -> dict:
     """Grounded clinical explanation of the patient's latest predicted stage."""

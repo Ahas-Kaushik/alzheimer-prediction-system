@@ -8,3 +8,8 @@ export const explainPrediction = (patientId) =>
   client.get(`/rag/explain/${patientId}`, { timeout: 120000 }).then((r) => r.data)
 
 export const ragStatus = () => client.get('/rag/status').then((r) => r.data)
+
+export const getKnowledgeGraph = (cap = 3) =>
+  client.get('/rag/graph', { params: { cap } }).then((r) => r.data)
+
+export const getVectorProjection = () => client.get('/rag/vectors').then((r) => r.data)

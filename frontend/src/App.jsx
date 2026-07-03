@@ -13,6 +13,7 @@ import CognitiveTest from './pages/CognitiveTest'
 import PredictionResult from './pages/PredictionResult'
 import DigitalTwin from './pages/DigitalTwin'
 import ReportUpload from './pages/ReportUpload'
+import Settings from './pages/Settings'
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
                 <Route path="/patient/:id/prediction"    element={<PredictionResult />} />
                 <Route path="/patient/:id/twin"          element={<DigitalTwin />} />
                 <Route path="/patient/:id/reports"       element={<ReportUpload />} />
+                <Route path="/settings"                  element={<Settings />} />
               </Routes>
             </AnimatePresence>
             </ErrorBoundary>
