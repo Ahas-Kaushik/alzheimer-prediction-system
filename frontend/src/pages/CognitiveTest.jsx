@@ -12,7 +12,7 @@ export default function CognitiveTest() {
   const { id: patientId } = useParams()
   const navigate = useNavigate()
   const {
-    currentStimulus, scores, status, error, gazeMetrics,
+    currentStimulus, scores, status, error, gazeMetrics, resetNotice,
     start, respond, updateGazeMetrics,
   } = useCognitiveTest(patientId)
 
@@ -26,8 +26,10 @@ export default function CognitiveTest() {
         <Card className="text-center py-10">
           <h3 className="text-lg font-semibold text-white mb-2">Patient Cognitive Assessment</h3>
           <p className="text-sm text-muted mb-4 max-w-md mx-auto">
-            You will see <strong className="text-white">10 items</strong> — everyday words and
-            objects mixed with a few unfamiliar/nonsense items. Two warmup rounds come first.
+            You will see <strong className="text-white">13 items</strong> — everyday words and
+            objects mixed with unfamiliar items and tricky <em>near-words</em> (real words with one
+            letter changed). Read each one: careless mashing or looking away restarts the test with
+            a longer 20-item version. Two warmup rounds come first.
           </p>
           <div className="max-w-md mx-auto mb-6 text-left space-y-2">
             <div className="flex items-start gap-3 rounded-lg bg-green-900/20 border border-green-800/40 px-4 py-2.5 text-sm">
@@ -55,13 +57,23 @@ export default function CognitiveTest() {
 
       {isActive && (
         <div className="relative">
+          {resetNotice && (
+            <div className="mb-4 rounded-lg border border-amber-700/60 bg-amber-950/30 px-4 py-3 text-sm text-amber-300">
+              <strong>Test restarted:</strong> {resetNotice}
+            </div>
+          )}
           {/* Browser-side gaze tracker — webcam never leaves the browser */}
           <div className="absolute top-4 right-4 z-10">
             <GazeTracker active={isActive} onMetricsUpdate={updateGazeMetrics} />
             {isActive && (
-              <div className="mt-1 text-xs text-muted text-right">
-                Stability: {(gazeMetrics.gaze_stability * 100).toFixed(0)}%
-                &nbsp;|&nbsp;Saccades: {gazeMetrics.saccade_count}
+              <div className="mt-1 text-xs text-right">
+                <span className={gazeMetrics.gaze_on_screen ? 'text-green-400' : 'text-red-400'}>
+                  {gazeMetrics.gaze_on_screen ? '● Looking at screen' : '● Look at the screen'}
+                </span>
+                <div className="text-muted">
+                  Stability: {(gazeMetrics.gaze_stability * 100).toFixed(0)}%
+                  &nbsp;|&nbsp;Saccades: {gazeMetrics.saccade_count}
+                </div>
               </div>
             )}
           </div>

@@ -10,6 +10,7 @@ import Card from '../components/ui/Card'
 import Button from '../components/ui/Button'
 import Spinner from '../components/ui/Spinner'
 import StageIndicator from '../components/prediction/StageIndicator'
+import PipelinePlayer from '../components/prediction/PipelinePlayer'
 import ConfidenceBar from '../components/prediction/ConfidenceBar'
 import ClinicalSummary from '../components/prediction/ClinicalSummary'
 import ClinicalDataForm from '../components/prediction/ClinicalDataForm'
@@ -125,6 +126,8 @@ export default function PredictionResult() {
     } catch (e) {
       setRunError(e.message || 'Prediction failed. Make sure an MRI scan is uploaded first.')
     } finally {
+      // Always drop out of the running state — this unmounts the animation and
+      // reveals the results (or the error) immediately.
       setRunning(false)
     }
   }
@@ -195,19 +198,21 @@ export default function PredictionResult() {
         </div>
       )}
 
-      {/* Running indicator */}
+      {/* Animated pipeline — background indicator only while the request is in
+          flight. It unmounts the instant `running` flips false, so results
+          appear immediately without waiting on the animation. */}
       {running && (
-        <div className="flex items-center gap-3 mb-4 text-sm text-muted">
-          <Spinner size="sm" /> Running multimodal prediction pipeline…
+        <div className="mb-6">
+          <PipelinePlayer />
         </div>
       )}
 
-      {loading && !latestPrediction && (
+      {loading && !latestPrediction && !running && (
         <div className="flex justify-center py-16"><Spinner size="lg" /></div>
       )}
 
       {/* ── No prediction yet: pre-flight checklist ─────────────────────────── */}
-      {!latestPrediction && !loading && (
+      {!latestPrediction && !loading && !running && (
         <div className="space-y-6">
           <Card>
             <h3 className="text-sm font-semibold text-white mb-1">Before Running Prediction</h3>
@@ -311,8 +316,13 @@ export default function PredictionResult() {
       )}
 
       {/* ── Prediction results ───────────────────────────────────────────────── */}
-      {latestPrediction && (
-        <div className="space-y-6">
+      {latestPrediction && !running && (
+        <motion.div
+          className="space-y-6"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
+        >
 
           {/* Row 1: Stage ring + Probabilities + Clinical summary */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -498,7 +508,7 @@ export default function PredictionResult() {
               Back to Profile
             </Button>
           </Card>
-        </div>
+        </motion.div>
       )}
     </PageWrapper>
   )

@@ -13,14 +13,23 @@ from pathlib import Path
 from typing import Literal, Optional
 
 # ── Targets: common everyday items the patient SHOULD recognize ──────────────
-OBJECT_NAMES = ["apple", "clock", "chair", "tree", "phone", "book", "car", "cup", "dog", "hat"]
-WORD_NAMES = ["HOUSE", "BREAD", "WATER", "LIGHT", "MUSIC"]
+OBJECT_NAMES = [
+    "apple", "clock", "chair", "tree", "phone", "book", "car", "cup", "dog", "hat",
+    "spoon", "flower", "key", "shoe", "table", "bird", "bottle", "pencil",
+]
+WORD_NAMES = [
+    "HOUSE", "BREAD", "WATER", "LIGHT", "MUSIC",
+    "RIVER", "TABLE", "GARDEN", "WINDOW", "MARKET", "SILVER", "CANDLE",
+]
 
 # ── Foils: nonsense/unfamiliar items the patient should NOT respond to ───────
-# These are plausible-looking pseudowords that a healthy person can easily
-# recognise as "not a real word". An impaired patient may falsely recognise them.
-FOIL_WORDS = ["ZARVEX", "QUELBIN", "FLOXID", "SNELDAR", "BRIXON"]
-FOIL_OBJECTS = ["zarvex", "quelbin", "floxid"]   # shown as labels (no images)
+# Two difficulty tiers so the test genuinely requires reading, not pattern-mashing:
+#   * pseudowords   — plausible but clearly not real words.
+#   * near-words    — real words with a single altered letter. These are HARD:
+#                     a person who is not actually reading will false-alarm on them.
+FOIL_WORDS = ["ZARVEX", "QUELBIN", "FLOXID", "SNELDAR", "BRIXON", "TRUVOND", "GLIMPER", "PLENDA"]
+FOIL_NEAR_WORDS = ["HOWSE", "BREADT", "WATTER", "LIGHNT", "MUSIQ", "RIVVER", "TABEL", "WINDOE"]
+FOIL_OBJECTS = ["zarvex", "quelbin", "floxid", "brundle", "snorate"]   # shown as labels (no images)
 
 ASSETS_DIR = Path(__file__).parent / "assets"
 OBJECTS_DIR = ASSETS_DIR / "objects"
@@ -39,10 +48,10 @@ class Stimulus:
 
 
 def build_stimulus_sequence(
-    n_target_objects: int = 4,
+    n_target_objects: int = 6,
     n_target_words: int = 3,
-    n_foils: int = 3,
-    duration_ms: int = 3000,
+    n_foils: int = 4,
+    duration_ms: int = 2200,
     n_warmup: int = 2,
     seed: Optional[int] = None,
     # Legacy aliases kept for backward-compat with any direct callers
@@ -51,7 +60,10 @@ def build_stimulus_sequence(
 ) -> list[Stimulus]:
     """Build a randomized stimulus list: warmup → targets → foils (interleaved).
 
-    Total scored stimuli = n_target_objects + n_target_words + n_foils = 10.
+    Default total scored stimuli = 6 + 3 + 4 = 13 (tougher 10–15 item test).
+    The reset flow requests ~20 items via larger counts. Roughly half the foils
+    are hard "near-words" (real word with one altered letter) so the task cannot
+    be passed by pattern-mashing without actually reading each item.
     """
     # Legacy param handling
     if n_objects is not None:
@@ -70,15 +82,16 @@ def build_stimulus_sequence(
         [("word", name, True) for name in words]
     )
 
-    # Build foil stimuli
-    n_foil_words = min(n_foils, len(FOIL_WORDS))
-    n_foil_objects = max(0, n_foils - n_foil_words)
-    foil_word_samples = rng.sample(FOIL_WORDS, n_foil_words)
-    foil_obj_samples = rng.sample(FOIL_OBJECTS, min(n_foil_objects, len(FOIL_OBJECTS)))
+    # Build foil stimuli — split between pseudowords and hard near-words.
+    n_near = n_foils // 2
+    n_pseudo = n_foils - n_near
+    pseudo_pool = FOIL_WORDS + FOIL_OBJECTS
+    near_samples = rng.sample(FOIL_NEAR_WORDS, min(n_near, len(FOIL_NEAR_WORDS)))
+    pseudo_samples = rng.sample(pseudo_pool, min(n_pseudo, len(pseudo_pool)))
 
     foil_items: list[tuple[str, str, bool]] = (
-        [("foil", w, False) for w in foil_word_samples] +
-        [("foil", o, False) for o in foil_obj_samples]
+        [("foil", w, False) for w in near_samples] +
+        [("foil", w, False) for w in pseudo_samples]
     )
 
     all_items = target_items + foil_items
@@ -129,6 +142,7 @@ class StimulusResult:
     response_correct: Optional[bool]   # True = hit or correct rejection; False = miss or false alarm
     reaction_time_ms: Optional[float]
     user_responded: Optional[bool] = None   # True = pressed Space (recognized); False = Enter/timeout
+    gaze_on_screen: Optional[bool] = None    # was the patient actually looking at the stimulus?
 
 
 def create_result(stimulus: Stimulus, shown_at: float) -> StimulusResult:
@@ -139,10 +153,15 @@ def create_result(stimulus: Stimulus, shown_at: float) -> StimulusResult:
         response_correct=None,
         reaction_time_ms=None,
         user_responded=None,
+        gaze_on_screen=None,
     )
 
 
-def record_response(result: StimulusResult, user_responded: bool) -> StimulusResult:
+def record_response(
+    result: StimulusResult,
+    user_responded: bool,
+    reaction_time_ms: Optional[float] = None,
+) -> StimulusResult:
     """Record the patient's button press and score it objectively.
 
     user_responded=True  means the patient pressed Space ("I recognize this").
@@ -153,11 +172,18 @@ def record_response(result: StimulusResult, user_responded: bool) -> StimulusRes
     - Target  + Enter  → miss (incorrect)
     - Foil    + Enter  → correct rejection (correct)
     - Foil    + Space  → false alarm (incorrect)
+
+    reaction_time_ms: the browser-measured time from stimulus onset to keypress.
+    When not provided we fall back to a server-side estimate (less accurate,
+    kept only for direct callers/tests).
     """
     now = time.time()
     result.responded_at = now
     result.user_responded = user_responded
     # response_correct = True when the action matches what the stimulus calls for
     result.response_correct = (user_responded == result.stimulus.is_target)
-    result.reaction_time_ms = (now - result.shown_at) * 1000.0
+    if reaction_time_ms is not None and reaction_time_ms >= 0:
+        result.reaction_time_ms = float(reaction_time_ms)
+    else:
+        result.reaction_time_ms = (now - result.shown_at) * 1000.0
     return result

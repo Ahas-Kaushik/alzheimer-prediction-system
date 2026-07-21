@@ -13,6 +13,7 @@ from typing import Optional
 import torch
 
 from backend.models.classifier.alzheimer_classifier import predict
+from backend.models.classifier.clinical_rules import apply_override
 from backend.models.classifier.feature_extractor import extract_image_features
 from backend.utils.data_normalizer import normalize_clinical_features, normalize_cognitive_scores
 from backend.utils.logger import get_logger
@@ -73,10 +74,19 @@ def run(
     logger.info(f"Agent1: fused vector dim={len(fused)}, running classifier")
     result = predict(fused, backend="mlp")
 
-    contributing = _top_contributing_factors(fused, result["probabilities"])
+    # Clinical biomarker override — escalates to AD/MCI when lab evidence is
+    # unambiguous, regardless of the imaging/cognitive-driven model output.
+    result = apply_override(result, clinical_features, cognitive_scores)
+
+    contributing = _merge_factors(
+        _top_contributing_factors(fused, result["probabilities"]),
+        result.get("biomarker_reasons", []),
+        result.get("override_applied", False),
+    )
 
     logger.info(
-        f"Agent1 result: stage={result['stage']}, confidence={result['confidence']:.3f}"
+        f"Agent1 result: stage={result['stage']}, confidence={result['confidence']:.3f}, "
+        f"ad_points={result.get('ad_points')}, override={result.get('override_applied')}"
     )
     return {
         "stage": result["stage"],
@@ -113,7 +123,12 @@ def run_with_precomputed_mri_feats(
 
     logger.info(f"Agent1: fused dim={len(fused)}, running classifier")
     result = predict(fused, backend="mlp")
-    contributing = _top_contributing_factors(fused, result["probabilities"])
+    result = apply_override(result, clinical_features, cognitive_scores)
+    contributing = _merge_factors(
+        _top_contributing_factors(fused, result["probabilities"]),
+        result.get("biomarker_reasons", []),
+        result.get("override_applied", False),
+    )
 
     return {
         "stage": result["stage"],
@@ -154,6 +169,28 @@ def _top_contributing_factors(fused: list[float], probs: dict) -> list[str]:
         [_humanize(f) for f in top_cog]
     )
     return factors[:3]
+
+
+def _merge_factors(model_factors: list[str], biomarker_reasons: list[str], override_applied: bool) -> list[str]:
+    """Combine model-derived factors with biomarker reasons.
+
+    When the biomarker override fired, its clinical reasons are the primary
+    explanation and lead the list; otherwise model factors lead and a couple of
+    supporting biomarker notes are appended.
+    """
+    if override_applied and biomarker_reasons:
+        merged = list(biomarker_reasons[:3])
+        for f in model_factors:
+            if len(merged) >= 4:
+                break
+            if f not in merged:
+                merged.append(f)
+        return merged
+    merged = list(model_factors)
+    for r in biomarker_reasons[:2]:
+        if r not in merged:
+            merged.append(r)
+    return merged[:4]
 
 
 def _humanize(key: str) -> str:

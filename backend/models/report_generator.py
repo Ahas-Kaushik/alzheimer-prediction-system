@@ -174,6 +174,58 @@ def _to_float(val) -> float | None:
         return None
 
 
+def _coerce_dict(val) -> dict:
+    """Coerce a value that may be a dict OR a JSON / python-literal string into a dict.
+
+    The CSV store persists `probabilities` as a JSON string, so when a prediction
+    is loaded back it arrives here as ``str``. Calling ``.items()`` on that string
+    used to raise ``AttributeError`` and crash PDF generation with a 500. This
+    helper makes the report generator tolerant of both shapes.
+    """
+    if isinstance(val, dict):
+        return val
+    if not val or not isinstance(val, str):
+        return {}
+    s = val.strip()
+    if not s or s.lower() in ("none", "null"):
+        return {}
+    import json as _json
+    try:
+        parsed = _json.loads(s)
+    except Exception:
+        try:
+            import ast as _ast
+            parsed = _ast.literal_eval(s)
+        except Exception:
+            return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _coerce_list(val) -> list:
+    """Coerce a value that may be a list OR a JSON / python-literal string into a list."""
+    if isinstance(val, list):
+        return val
+    if isinstance(val, tuple):
+        return list(val)
+    if not val or not isinstance(val, str):
+        return []
+    s = val.strip()
+    if not s or s.lower() in ("none", "null"):
+        return []
+    import json as _json
+    try:
+        parsed = _json.loads(s)
+    except Exception:
+        try:
+            import ast as _ast
+            parsed = _ast.literal_eval(s)
+        except Exception:
+            return []
+    if isinstance(parsed, (list, tuple)):
+        return list(parsed)
+    return []
+
+
 def _build_reasoning(stage: str, factors: list, cognitive_index=None, ssim_score=None) -> str:
     context = {
         "Normal": (
@@ -332,11 +384,14 @@ def generate_pdf(
     story.append(Spacer(1, 0.3 * cm))
 
     # Probability breakdown
-    probs = prediction.get("probabilities", {})
+    # `probabilities` may arrive as a dict (fresh from the pipeline) or as a JSON
+    # string (loaded back from the CSV store) — coerce so .items() never crashes.
+    probs = _coerce_dict(prediction.get("probabilities", {}))
     if probs:
         prob_rows = [["Stage", "Probability"]]
         for s_name, p_val in probs.items():
-            prob_rows.append([s_name, f"{float(p_val) * 100:.1f}%"])
+            p_f = _to_float(p_val)
+            prob_rows.append([s_name, f"{p_f * 100:.1f}%" if p_f is not None else "—"])
         prob_table = Table(prob_rows, colWidths=[6 * cm, 4 * cm])
         prob_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), _BORDER),
@@ -350,17 +405,12 @@ def generate_pdf(
         ]))
         story.append(prob_table)
 
-    # Contributing factors — stored as list or as Python repr string
-    factors_raw = prediction.get("contributing_factors", [])
-    if isinstance(factors_raw, str):
-        import ast as _ast
-        try:
-            _parsed = _ast.literal_eval(factors_raw)
-            factors = list(_parsed) if isinstance(_parsed, (list, tuple)) else [factors_raw]
-        except Exception:
-            factors = [factors_raw] if factors_raw else []
-    else:
-        factors = list(factors_raw) if factors_raw else []
+    # Contributing factors — stored as list or as JSON / Python repr string
+    factors = _coerce_list(prediction.get("contributing_factors", []))
+    if not factors:
+        _raw_factor = prediction.get("contributing_factors")
+        if isinstance(_raw_factor, str) and _raw_factor.strip() and _raw_factor.strip().lower() not in ("none", "null", "[]"):
+            factors = [_raw_factor.strip()]
 
     if factors:
         story.append(Spacer(1, 0.3 * cm))
@@ -437,16 +487,24 @@ def generate_pdf(
         except Exception as exc:
             logger.warning(f"Could not embed twin image: {exc}")
 
-    # Brain region severity table from twin_data
-    if twin_data and twin_data.get("regions"):
+    # Brain region severity table from twin_data.
+    # The CSV store persists regions under `regions_json` as a stringified list,
+    # while a fresh twin payload uses `regions` — support both.
+    twin_regions = []
+    if twin_data:
+        twin_regions = _coerce_list(twin_data.get("regions") or twin_data.get("regions_json"))
+    if twin_regions:
         story.append(Paragraph("Brain Region Severity", S["h2"]))
         story.append(_hr())
         region_rows = [["Brain Region", "Status", "Severity"]]
-        for r in twin_data["regions"]:
+        for r in twin_regions:
+            if not isinstance(r, dict):
+                continue
+            _sev = _to_float(r.get("severity")) or 0.0
             region_rows.append([
                 r.get("name", "—"),
                 r.get("status", "—"),
-                f"{float(r.get('severity', 0)) * 100:.0f}%",
+                f"{_sev * 100:.0f}%",
             ])
         region_table = Table(region_rows, colWidths=[6 * cm, 4 * cm, 3 * cm])
         region_table.setStyle(TableStyle([

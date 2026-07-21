@@ -14,6 +14,12 @@ import Webcam from 'react-webcam'
 
 const LEFT_IRIS_CENTER = 468
 const RIGHT_IRIS_CENTER = 473
+// Eye-corner / lid landmarks used to estimate gaze direction (is the iris
+// centred in the eye → looking forward at the screen, or deviated → looking away)
+const LEFT_EYE = { outer: 33, inner: 133, top: 159, bottom: 145, iris: 468 }
+const RIGHT_EYE = { outer: 263, inner: 362, top: 386, bottom: 374, iris: 473 }
+const H_TOLERANCE = 0.30   // how far the iris may sit from eye-centre horizontally
+const V_TOLERANCE = 0.34   // …and vertically, before we call it "looking away"
 const SACCADE_THRESHOLD_PX = 30   // normalised * 640px equivalent
 const SAMPLE_INTERVAL_MS = 100    // collect a sample every 100 ms
 
@@ -25,6 +31,10 @@ export default function GazeTracker({ onMetricsUpdate, active = true }) {
   const saccadeCountRef = useRef(0)
   const lastGazeRef = useRef(null)
   const intervalRef = useRef(null)
+  const onScreenRef = useRef(true)          // current instantaneous on-screen state
+  const onScreenSamplesRef = useRef(0)      // samples where the patient looked at screen
+  const totalSamplesRef = useRef(0)         // total gaze samples
+  const [onScreen, setOnScreen] = useState(true)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState(null)
 
@@ -36,13 +46,42 @@ export default function GazeTracker({ onMetricsUpdate, active = true }) {
     return { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 }
   }
 
+  // Estimate whether one eye is looking forward (iris centred within the eye).
+  const eyeLooksForward = (lm, eye) => {
+    const outer = lm[eye.outer], inner = lm[eye.inner]
+    const top = lm[eye.top], bottom = lm[eye.bottom], iris = lm[eye.iris]
+    if (!outer || !inner || !top || !bottom || !iris) return null
+    const w = outer.x - inner.x
+    const h = bottom.y - top.y
+    if (Math.abs(w) < 1e-4 || Math.abs(h) < 1e-4) return null
+    const hRatio = (iris.x - inner.x) / w    // ~0.5 when centred
+    const vRatio = (iris.y - top.y) / h      // ~0.5 when centred
+    return Math.abs(hRatio - 0.5) < H_TOLERANCE && Math.abs(vRatio - 0.5) < V_TOLERANCE
+  }
+
   const onResults = useCallback((results) => {
-    if (!results.multiFaceLandmarks?.length) return
+    // No face in frame → the patient is not looking at the screen.
+    if (!results.multiFaceLandmarks?.length) {
+      onScreenRef.current = false
+      totalSamplesRef.current += 1
+      return
+    }
     const landmarks = results.multiFaceLandmarks[0]
     const center = getIrisCenter(landmarks)
     if (!center) return
 
     const now = Date.now()
+
+    // Gaze-direction / on-screen estimation (average both eyes)
+    const leftFwd = eyeLooksForward(landmarks, LEFT_EYE)
+    const rightFwd = eyeLooksForward(landmarks, RIGHT_EYE)
+    const forwardVotes = [leftFwd, rightFwd].filter((v) => v !== null)
+    const isOnScreen = forwardVotes.length === 0
+      ? true
+      : forwardVotes.some((v) => v === true)   // either eye forward ⇒ on screen
+    onScreenRef.current = isOnScreen
+    totalSamplesRef.current += 1
+    if (isOnScreen) onScreenSamplesRef.current += 1
 
     // Saccade detection: large displacement since last sample
     if (lastGazeRef.current) {
@@ -98,10 +137,15 @@ export default function GazeTracker({ onMetricsUpdate, active = true }) {
     intervalRef.current = setInterval(() => {
       const history = gazeHistoryRef.current.slice()
       const stability = computeGazeStability(history)
+      const total = totalSamplesRef.current || 1
+      const ratio = onScreenSamplesRef.current / total
+      setOnScreen(onScreenRef.current)
       if (onMetricsUpdate) {
         onMetricsUpdate({
           gaze_stability: parseFloat(stability.toFixed(4)),
           saccade_count: saccadeCountRef.current,
+          gaze_on_screen: onScreenRef.current,
+          on_screen_ratio: parseFloat(ratio.toFixed(4)),
           sample_count: history.length,
         })
       }
@@ -148,11 +192,14 @@ export default function GazeTracker({ onMetricsUpdate, active = true }) {
       <div className="absolute top-1 left-1 flex items-center gap-1">
         <span
           className={`w-2 h-2 rounded-full ${
-            error ? 'bg-danger' : ready ? 'bg-success animate-pulse' : 'bg-warning'
+            error ? 'bg-danger'
+              : !ready ? 'bg-warning'
+              : onScreen ? 'bg-success animate-pulse'
+              : 'bg-danger animate-pulse'
           }`}
         />
         <span className="text-xs text-white/70">
-          {error ? 'Error' : ready ? 'Gaze Active' : 'Loading…'}
+          {error ? 'Error' : !ready ? 'Loading…' : onScreen ? 'Gaze Active' : 'Look at screen'}
         </span>
       </div>
       {error && (

@@ -39,20 +39,27 @@ def submit_response(
     correct: bool,
     browser_gaze_stability: float = 1.0,
     browser_saccade_count: int = 0,
+    reaction_time_ms: Optional[float] = None,
+    gaze_on_screen: bool = True,
 ) -> dict:
     """Record the patient's response and advance to the next stimulus.
 
     browser_gaze_stability and browser_saccade_count come from MediaPipe
     FaceMesh running client-side (fixes server-side webcam access limitation).
+    reaction_time_ms and gaze_on_screen power the anti-gaming / integrity checks.
 
-    Returns either {'status': 'ongoing', 'next_stimulus': ...}
-    or {'status': 'completed', 'scores': {...}}.
+    Returns one of:
+      {'status': 'ongoing',   'next_stimulus': ...}
+      {'status': 'reset',     'current_stimulus': ..., 'reason': ...}
+      {'status': 'completed', 'scores': {...}}.
     """
     return test_runner.submit_response(
         session_id,
         correct,
         browser_gaze_stability=browser_gaze_stability,
         browser_saccade_count=browser_saccade_count,
+        reaction_time_ms=reaction_time_ms,
+        gaze_on_screen=gaze_on_screen,
     )
 
 

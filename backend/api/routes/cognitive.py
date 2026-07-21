@@ -20,6 +20,10 @@ class SubmitResponseIn(BaseModel):
     # Browser-computed gaze metrics from GazeTracker.jsx (MediaPipe FaceMesh)
     gaze_stability: float = 1.0
     saccade_count: int = 0
+    # Browser-measured reaction time (ms) and whether the patient was looking at
+    # the screen — power the anti-gaming / integrity checks.
+    reaction_time_ms: float | None = None
+    gaze_on_screen: bool = True
 
 
 @router.post("/start")
@@ -47,6 +51,8 @@ async def submit_result(session_id: str, body: SubmitResponseIn) -> dict:
             body.correct,
             browser_gaze_stability=body.gaze_stability,
             browser_saccade_count=body.saccade_count,
+            reaction_time_ms=body.reaction_time_ms,
+            gaze_on_screen=body.gaze_on_screen,
         )
 
         if result.get("status") == "completed":
