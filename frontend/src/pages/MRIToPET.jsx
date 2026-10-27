@@ -1,7 +1,7 @@
 /**
  * Tab 2 — MRI → PET Synthesis.
  * No upload here. Selects from scans already uploaded in Tab 1.
- * Shows the 3-panel view (MRI | Physics PET | GAN Heatmap) after synthesis.
+ * Shows MRI and the tissue-uptake PET side by side after synthesis.
  */
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -69,7 +69,7 @@ export default function MRIToPET() {
         <h2 className="text-xl font-semibold text-white">MRI → PET Synthesis</h2>
         <p className="text-sm text-muted mt-1">
           Select a previously uploaded MRI scan and generate a synthetic FDG-PET image.
-          The 3-panel view (MRI · Physics PET · Activity Heatmap) is shown below after synthesis.
+          MRI and the synthetic PET are shown below after synthesis.
         </p>
       </div>
 
@@ -157,7 +157,7 @@ export default function MRIToPET() {
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
           <Card className="mb-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-white">Scan Analysis — 3-Panel View</h3>
+              <h3 className="text-sm font-semibold text-white">Scan Analysis</h3>
               <div className="flex gap-2 text-xs text-muted">
                 <span className="bg-surface border border-border px-2 py-0.5 rounded">
                   SSIM {petResult.ssim_score != null ? petResult.ssim_score.toFixed(3) : 'N/A'}
@@ -172,7 +172,6 @@ export default function MRIToPET() {
               mriPath={selectedScan.file_path}
               petPath={petResult.file_path}
               ssimScore={petResult.ssim_score}
-              heatmapPath={petResult.heatmap_file_path}
             />
           </Card>
 

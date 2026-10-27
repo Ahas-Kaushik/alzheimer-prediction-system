@@ -61,81 +61,61 @@ def load_generator(checkpoint_path: Optional[str | Path] = None) -> LightweightU
     return _generator
 
 
-def _physics_fallback_pet(mri_tensor: torch.Tensor) -> torch.Tensor:
-    """Generate a pseudo-PET from MRI using tissue-specific intensity mapping.
-
-    Approximates FDG-PET metabolic activity from T1 structural MRI by
-    assigning realistic uptake values per tissue class:
-
-      Background / air  (T1 < -0.90)    ->  0.00  (no uptake)
-      CSF / ventricles  (T1: 0.00-0.12) ->  0.05  (near zero)
-      Gray matter       (T1: 0.12-0.60) ->  0.70-1.00 (peak FDG uptake)
-      White matter      (T1: 0.60-0.85) ->  0.40-0.55 (moderate uptake)
-      Bone / scalp      (T1 > 0.85)     ->  0.10  (low uptake)
-
-    The result is lightly smoothed to simulate PET's lower resolution
-    and normalized to [-1, 1] for pipeline consistency.
-    """
-    device = mri_tensor.device
-    arr = mri_tensor.clone().float()   # (1, 1, H, W) in [-1, 1]
-
-    # ── Step 1: Blur MRI FIRST to remove isolated noisy pixels ───────────────
-    # This prevents single-pixel GM-range noise in WM regions from appearing
-    # as isolated red dots after tissue classification.
-    ksize_pre = 11
-    sigma_pre = 3.0
-    x = torch.linspace(-(ksize_pre // 2), ksize_pre // 2, ksize_pre, dtype=arr.dtype, device=device)
-    g = torch.exp(-x.pow(2) / (2 * sigma_pre ** 2))
+def _gaussian_kernel(ksize: int, sigma: float, dtype, device) -> torch.Tensor:
+    x = torch.linspace(-(ksize // 2), ksize // 2, ksize, dtype=dtype, device=device)
+    g = torch.exp(-x.pow(2) / (2 * sigma ** 2))
     g = g / g.sum()
-    k_pre = (g.unsqueeze(0) * g.unsqueeze(1)).view(1, 1, ksize_pre, ksize_pre).to(device)
-    smoothed = F.conv2d(arr, k_pre, padding=ksize_pre // 2)
+    return (g.unsqueeze(0) * g.unsqueeze(1)).view(1, 1, ksize, ksize)
 
-    # ── Step 2: Tissue-class activity mapping on smoothed image ──────────────
-    t = (smoothed + 1.0) / 2.0   # [-1,1] -> [0,1]
-    pet = torch.zeros_like(t)
 
-    # CSF / ventricles (T1 ≈ 0.00–0.12): near-zero uptake
-    pet[(t >= 0.00) & (t < 0.12)] = 0.05
+def _physics_fallback_pet(mri_tensor: torch.Tensor) -> torch.Tensor:
+    """Approximate an FDG-PET uptake map from a T1-weighted MRI.
 
-    # Gray matter (T1 ≈ 0.12–0.60): peak FDG uptake, smooth triangular profile
-    mask_gm = (t >= 0.12) & (t < 0.60)
-    gm_val = t[mask_gm]
-    pet[mask_gm] = torch.where(
-        gm_val < 0.35,
-        0.65 + (gm_val - 0.12) / (0.35 - 0.12) * 0.35,   # 0.65 → 1.00
-        1.00 - (gm_val - 0.35) / (0.60 - 0.35) * 0.40,   # 1.00 → 0.60
-    )
+    FDG uptake follows tissue, not raw pixel brightness:
+      outside the head  -> no uptake
+      CSF / ventricles  -> near zero (darkest brain tissue on T1)
+      gray matter       -> high uptake (cortex and deep gray)
+      white matter      -> about 40% of gray-matter uptake (brightest brain on T1)
 
-    # White matter (T1 ≈ 0.60–0.85): moderate uptake
-    mask_wm = (t >= 0.60) & (t < 0.85)
-    pet[mask_wm] = 0.55 - (t[mask_wm] - 0.60) / (0.85 - 0.60) * 0.20   # 0.55 → 0.35
+    Thresholds are percentiles inside each scan's own brain mask, because
+    OASIS JPEGs are not in a fixed T1 intensity range. Uptake stays on a
+    fixed 0–1 scale so background is not stretched into false hot spots.
+    """
+    x = mri_tensor.float()
+    if x.dim() == 3:
+        x = x.unsqueeze(0)
+    device, dtype = x.device, x.dtype
+    t = ((x + 1.0) / 2.0).clamp(0.0, 1.0)
+    k_pre = _gaussian_kernel(9, 2.0, dtype, device)
+    smoothed = F.conv2d(t, k_pre, padding=4)
 
-    # Bone / scalp (T1 ≥ 0.85): low uptake
-    pet[t >= 0.85] = 0.12
+    pet = torch.zeros_like(smoothed)
+    brain = torch.zeros_like(smoothed)
+    for i in range(smoothed.shape[0]):
+        img = smoothed[i, 0]
+        border = torch.cat([img[0], img[-1], img[:, 0], img[:, -1]])
+        bg = border.median()
+        mask = img > (bg + 0.06)
+        if int(mask.sum()) < 64:
+            continue
+        vals = img[mask]
+        csf_cut = torch.quantile(vals, 0.18)
+        wm_cut = torch.quantile(vals, 0.62)
+        uptake = torch.zeros_like(img)
+        csf = mask & (img <= csf_cut)
+        gm = mask & (img > csf_cut) & (img <= wm_cut)
+        wm = mask & (img > wm_cut)
+        uptake[csf] = 0.05
+        span = (wm_cut - csf_cut).clamp(min=1e-4)
+        uptake[gm] = 1.0 - 0.22 * ((img[gm] - csf_cut) / span)
+        uptake[wm] = 0.40
+        pet[i, 0] = uptake
+        brain[i, 0] = mask.float()
 
-    # Hard background suppression (MRI < -0.88 = very dark pixels)
-    pet[arr < -0.88] = 0.0
-
-    # ── Step 3: Second light blur to simulate PET's lower resolution ─────────
-    ksize_post = 7
-    sigma_post = 1.5
-    x2 = torch.linspace(-(ksize_post // 2), ksize_post // 2, ksize_post, dtype=arr.dtype, device=device)
-    g2 = torch.exp(-x2.pow(2) / (2 * sigma_post ** 2))
-    g2 = g2 / g2.sum()
-    k_post = (g2.unsqueeze(0) * g2.unsqueeze(1)).view(1, 1, ksize_post, ksize_post).to(device)
-    pet = F.conv2d(pet, k_post, padding=ksize_post // 2)
-
-    # Re-suppress background after blur
-    pet[arr < -0.88] = 0.0
-
-    # ── Step 4: Normalize to [-1, 1] ─────────────────────────────────────────
-    vmin, vmax = pet.min(), pet.max()
-    if vmax > vmin:
-        pet = (pet - vmin) / (vmax - vmin) * 2.0 - 1.0
-    else:
-        pet = torch.zeros_like(pet)
-
-    return pet
+    k_post = _gaussian_kernel(11, 2.2, dtype, device)
+    pet = F.conv2d(pet, k_post, padding=5)
+    pet = pet * (F.conv2d(brain, k_post, padding=5) > 0.35).float()
+    return (pet.clamp(0.0, 1.0) * 2.0 - 1.0)
 
 
 def is_using_fallback() -> bool:
@@ -163,33 +143,18 @@ def synthesize_pet(mri_tensor: torch.Tensor) -> torch.Tensor:
 
 @torch.no_grad()
 def generate_activity_heatmap(mri_tensor: torch.Tensor) -> torch.Tensor:
-    """GAN-based brain activity heatmap — used for visualization only.
+    """FDG-style activity map for display.
 
-    Runs the trained GAN generator to produce a synthetic PET-like tensor
-    that captures relative activity patterns learned from real MRI/PET pairs.
-    The output is intended for display as a colorized heatmap overlay alongside
-    the MRI in the scan comparison view.  It is NOT used in the detection pipeline.
+    The GAN was trained on 24 brain-tumor MRI/PET pairs, so its colors do not
+    follow cortical glucose uptake. The displayed heatmap uses the same
+    tissue uptake map as detection: cortex high, white matter moderate,
+    ventricles and background dark.
 
     Args:
         mri_tensor: Shape (1, 1, 256, 256) with values in [-1, 1].
 
     Returns:
-        GAN output tensor of same shape, values in [-1, 1].
-        Falls back to physics-based output if the GAN checkpoint is missing.
+        Uptake tensor of the same shape, values in [-1, 1].
     """
-    global _device
-
-    gen = load_generator()
-
-    if _device is None:
-        _device = _resolve_device()
-
-    mri_tensor = mri_tensor.to(_device)
-    gen.eval()
-
-    if _using_fallback:
-        # Checkpoint missing — use physics as the heatmap source too
-        logger.warning("GAN checkpoint missing — heatmap will use physics fallback")
-        return _physics_fallback_pet(mri_tensor).cpu()
-
-    return gen(mri_tensor).cpu()
+    device = _resolve_device()
+    return _physics_fallback_pet(mri_tensor.to(device)).cpu()

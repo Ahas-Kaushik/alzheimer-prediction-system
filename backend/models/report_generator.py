@@ -445,9 +445,10 @@ def generate_pdf(
         story.append(Paragraph("Synthesized PET Scan", S["h2"]))
         story.append(_hr())
         story.append(Paragraph(
-            "AI-generated FDG-PET scan synthesized from MRI structural data. "
-            "Warm regions indicate higher metabolic activity (healthy tissue); "
-            "cooler/darker regions indicate reduced glucose uptake (neurodegeneration).",
+            "Visualization only. Tissue uptake map colored from the MRI "
+            "(cortex bright, white matter lower, ventricles and background dark). "
+            "This is not a scanner FDG-PET and is not a diagnosis. "
+            "The same map is the PET input to the stage model.",
             S["muted"],
         ))
         story.append(Spacer(1, 0.2 * cm))

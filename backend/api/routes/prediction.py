@@ -94,6 +94,11 @@ async def get_latest_prediction(patient_id: str) -> PredictionOut:
         row = patient_store.get_latest_prediction(patient_id)
         if row is None:
             raise HTTPException(status_code=404, detail="No predictions found for patient")
+        mri_path = row.get("mri_path") or None
+        pet_path = row.get("pet_path") or None
+        if mri_path and pet_path:
+            from backend.agents.agent2_pet_synthesizer import refresh_saved_pet
+            pet_path = refresh_saved_pet(mri_path, pet_path) or pet_path
         return PredictionOut(
             pred_id=row["pred_id"],
             patient_id=row["patient_id"],
@@ -102,8 +107,8 @@ async def get_latest_prediction(patient_id: str) -> PredictionOut:
             confidence=_safe_float(row.get("confidence")) or 0.0,
             contributing_factors=_parse_list(row.get("contributing_factors", "[]")),
             run_date=datetime.fromisoformat(row["run_date"]) if row.get("run_date") else datetime.now(timezone.utc),
-            mri_path=row.get("mri_path") or None,
-            pet_path=row.get("pet_path") or None,
+            mri_path=mri_path,
+            pet_path=pet_path,
             gradcam_path=row.get("gradcam_path") or None,
             cognitive_index=_safe_float(row.get("cognitive_index")),
             ssim_score=_safe_float(row.get("ssim_score")),

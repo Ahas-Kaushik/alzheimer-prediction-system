@@ -18,6 +18,27 @@ from backend.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+def refresh_saved_pet(mri_path: str, pet_path: str) -> str | None:
+    """Rewrite a stored PET PNG with the current tissue-uptake map.
+
+    Older visits kept a PET file from the previous color mapping. Loading the
+    MRI again and saving over ``pet_path`` makes the prediction page and the
+    PDF use the same image the classifier's PET features come from.
+    """
+    try:
+        from backend.utils.image_utils import load_mri_image, save_pet_as_colored_png
+
+        mri = load_mri_image(mri_path, size=settings.gan_image_size)
+        pet = synthesize_pet(mri)
+        dest = Path(pet_path)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        save_pet_as_colored_png(pet, dest)
+        return str(dest)
+    except Exception as exc:
+        logger.warning(f"Could not refresh PET image: {exc}")
+        return None
+
+
 def run(
     mri_tensor: torch.Tensor,
     patient_id: str,

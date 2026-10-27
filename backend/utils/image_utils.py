@@ -114,20 +114,15 @@ def tensor_to_png_bytes(tensor: torch.Tensor) -> bytes:
 def tensor_to_pet_png_bytes(tensor: torch.Tensor) -> bytes:
     """Convert a PET tensor (1,1,H,W) in [-1,1] to a colored PNG.
 
-    Uses the clinical 'hot' colormap:
-      0.0  → black       (no metabolic activity)
-      0.2  → dark blue   (very low activity)
-      0.4  → cyan        (low activity)
-      0.6  → yellow      (medium activity)
-      0.8  → orange/red  (high activity)
-      1.0  → white       (very high activity)
-
-    This matches the colour scale used in clinical FDG-PET brain imaging.
+    Uses the clinical hot colormap:
+      0.0  → black  (no uptake: air, scalp, ventricles)
+      0.4  → red    (low uptake: white matter)
+      0.7  → yellow (high uptake: cortex)
+      1.0  → white  (peak gray-matter uptake)
     """
     import io
 
     arr = tensor.squeeze().cpu().float().numpy()
-    # Map [-1, 1] → [0, 1]
     arr = ((arr + 1.0) / 2.0).clip(0.0, 1.0)
 
     h, w = arr.shape
@@ -135,36 +130,23 @@ def tensor_to_pet_png_bytes(tensor: torch.Tensor) -> bytes:
     g = np.zeros((h, w), dtype=np.float32)
     b = np.zeros((h, w), dtype=np.float32)
 
-    # Segment 1: 0.00 – 0.20 → black → dark blue
-    m = (arr >= 0.0) & (arr < 0.20)
-    t = arr[m] / 0.20
-    b[m] = t * 180
-
-    # Segment 2: 0.20 – 0.40 → dark blue → cyan
-    m = (arr >= 0.20) & (arr < 0.40)
-    t = (arr[m] - 0.20) / 0.20
-    g[m] = t * 255
-    b[m] = 180 + t * 75   # 180 → 255
-
-    # Segment 3: 0.40 – 0.60 → cyan → yellow
-    m = (arr >= 0.40) & (arr < 0.60)
-    t = (arr[m] - 0.40) / 0.20
+    # black → red
+    m = arr < 0.45
+    t = arr[m] / 0.45
     r[m] = t * 255
-    g[m] = 255
-    b[m] = 255 * (1 - t)  # 255 → 0
 
-    # Segment 4: 0.60 – 0.80 → yellow → orange/red
-    m = (arr >= 0.60) & (arr < 0.80)
-    t = (arr[m] - 0.60) / 0.20
+    # red → yellow
+    m = (arr >= 0.45) & (arr < 0.75)
+    t = (arr[m] - 0.45) / 0.30
     r[m] = 255
-    g[m] = 255 * (1 - t * 0.8)  # 255 → 51
+    g[m] = t * 230
 
-    # Segment 5: 0.80 – 1.00 → orange/red → white
-    m = arr >= 0.80
-    t = (arr[m] - 0.80) / 0.20
+    # yellow → white
+    m = arr >= 0.75
+    t = (arr[m] - 0.75) / 0.25
     r[m] = 255
-    g[m] = 51 + t * 204    # 51 → 255
-    b[m] = t * 255          # 0  → 255
+    g[m] = 230 + t * 25
+    b[m] = t * 255
 
     rgb = np.stack([r, g, b], axis=-1).clip(0, 255).astype(np.uint8)
     img = Image.fromarray(rgb, mode="RGB")

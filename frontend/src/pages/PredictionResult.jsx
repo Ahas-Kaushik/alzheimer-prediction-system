@@ -22,7 +22,8 @@ function toImageUrl(filePath) {
   if (!filePath) return null
   const norm = filePath.replace(/\\/g, '/')
   if (norm.startsWith('http')) return norm
-  return `http://localhost:8000/uploads/${norm.replace(/^.*uploads\//, '')}`
+  const url = `http://localhost:8000/uploads/${norm.replace(/^.*uploads\//, '')}`
+  return url.includes('pet') ? `${url}?v=${Date.now()}` : url
 }
 
 const STAGE_COLORS = { Normal: '#22c55e', MCI: '#f59e0b', AD: '#ef4444' }
@@ -391,10 +392,9 @@ export default function PredictionResult() {
                   )}
                   {imgTab === 'pet' && (
                     <>
-                      <p className="text-slate-300">Physics-based synthetic PET derived from the MRI via tissue classification. Warm colors = higher metabolic activity. Cool/dark = reduced glucose uptake.</p>
+                      <p className="text-slate-300">Tissue uptake map from this MRI. Yellow and white mark higher estimated activity in cortex. Black marks ventricles and background. This is the PET image used in the stage prediction.</p>
                       <p className="text-xs text-muted mt-1">
-                        <span className="text-yellow-400 font-medium">Clinical note:</span> Structural approximation only.
-                        The prediction is driven by <span className="text-white">MRI features + clinical data + cognitive scores</span>.
+                        <span className="text-yellow-400 font-medium">Visualization only.</span> Not a scanner FDG-PET and not a diagnosis.
                       </p>
                     </>
                   )}

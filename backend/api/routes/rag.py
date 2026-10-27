@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -55,7 +57,22 @@ async def ask(body: AskIn) -> dict:
     """Answer a free-text question about a patient using GraphRAG."""
     try:
         from backend.rag import graph_rag
-        return graph_rag.answer_question(body.patient_id, body.question)
+        return await asyncio.wait_for(
+            asyncio.to_thread(graph_rag.answer_question, body.patient_id, body.question),
+            timeout=25,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("ask timed out; returning templated fallback")
+        return {
+            "answer": (
+                "The language model did not respond in time. "
+                "This is decision support only, not a diagnosis. "
+                "Try the question again, or use the stage and factors already on this page."
+            ),
+            "used_llm": False,
+            "sources": [],
+            "patient_facts": {},
+        }
     except Exception as e:
         logger.error(f"ask failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -91,7 +108,13 @@ async def explain(patient_id: str) -> dict:
     """Grounded clinical explanation of the patient's latest predicted stage."""
     try:
         from backend.rag import graph_rag
-        return graph_rag.explain_prediction(patient_id)
+        return await asyncio.wait_for(
+            asyncio.to_thread(graph_rag.explain_prediction, patient_id),
+            timeout=25,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("explain timed out")
+        raise HTTPException(status_code=504, detail="Explanation timed out. Try again.")
     except Exception as e:
         logger.error(f"explain failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

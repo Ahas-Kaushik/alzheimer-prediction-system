@@ -148,6 +148,10 @@ async def download_medical_report(patient_id: str) -> Response:
             return str(alt) if alt.is_file() else None
 
         pet_img_path = _resolve_path(latest_pred.get("pet_path", ""))
+        mri_img_path = _resolve_path(latest_pred.get("mri_path", ""))
+        if mri_img_path and pet_img_path:
+            from backend.agents.agent2_pet_synthesizer import refresh_saved_pet
+            pet_img_path = refresh_saved_pet(mri_img_path, pet_img_path) or pet_img_path
         gradcam_img_path = _resolve_path(latest_pred.get("gradcam_path", ""))
 
         pdf_bytes = generate_pdf(
